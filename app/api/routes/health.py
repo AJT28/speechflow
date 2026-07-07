@@ -1,15 +1,18 @@
 from fastapi import APIRouter
 
-router = APIRouter()
+router = APIRouter(
+    tags=["Health"],
+)
 
 
-@router.get("/health", tags=["Health"])
-def health_check():
-    """
-    Health check endpoint.
-    """
+@router.get(
+    "/health",
+    summary="Check API health",
+    description="Returns the current health status of the SpeechFlow API.",
+)
+async def health_check():
     return {
         "status": "healthy",
         "service": "SpeechFlow",
-        "version": "0.1.0"
+        "version": "0.1.0",
     }
