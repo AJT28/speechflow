@@ -1,2 +1,11 @@
 app/__pycache__/
 api/__pycache__/
+routes/__pycache__/
+models/__pycache__/
+services/__pycache__/  
+.venv
+*.pyc
+speech.wav
+.env
+.env.local
+__pycache__/
