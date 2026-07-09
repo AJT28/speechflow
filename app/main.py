@@ -1,8 +1,9 @@
+from starlette.responses import FileResponse
 from fastapi import FastAPI
 
 from app.api.routes.health import router as health_router
 from app.api.routes.transcription import router as transcription_router
-
+from fastapi.staticfiles import StaticFiles
 app = FastAPI(
     title="SpeechFlow API",
     description="""
@@ -33,12 +34,9 @@ app.include_router(health_router)
 app.include_router(transcription_router)
 
 
-@app.get(
-    "/",
-    tags=["Home"],
-    summary="Welcome endpoint",
-    description="Returns a welcome message for the SpeechFlow API.",
-)
+@app.get("/")
+def frontend():
+    return FileResponse("app/static/index.html")
 async def root():
     return {
         "message": "Welcome to SpeechFlow!",
@@ -46,3 +44,12 @@ async def root():
         "health": "/health",
         "transcribe": "/transcribe",
     }
+
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
+
+@app.get("/")
+def frontend():
+    return FileResponse("app/static/index.html")
+
+    
