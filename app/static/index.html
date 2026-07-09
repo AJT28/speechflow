@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>SpeechFlow</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+    <div class="container">
+        <h1>SpeechFlow</h1>
+        <p>Upload an audio file and transcribe it using Whisper.</p>
+
+        <input type="file" id="audioFile" accept="audio/*">
+        <button onclick="transcribeAudio()">Transcribe</button>
+
+        <h2>Result</h2>
+        <pre id="result">No transcription yet.</pre>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+
+</html>
