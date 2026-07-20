@@ -1,6 +1,6 @@
 from starlette.responses import FileResponse
 from fastapi import FastAPI
-
+from app.api.routes.streaming import router as streaming_router
 from app.api.routes.health import router as health_router
 from app.api.routes.transcription import router as transcription_router
 from fastapi.staticfiles import StaticFiles
@@ -32,6 +32,7 @@ A GPU-powered speech-to-text API using FastAPI and Whisper.
 
 app.include_router(health_router)
 app.include_router(transcription_router)
+app.include_router(streaming_router) 
 
 
 @app.get("/")
@@ -52,4 +53,5 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 def frontend():
     return FileResponse("app/static/index.html")
 
-    
+   
+
