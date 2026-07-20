@@ -1,28 +1,34 @@
-import asyncio
 import json
-import os
-import tempfile
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import (
+    APIRouter,
+    WebSocket,
+    WebSocketDisconnect,
+)
 
-from app.services.transcription_service import TranscriptionService
+from app.services.streaming_service import (
+    StreamingTranscriptionService,
+)
+from app.services.transcription_service import (
+    TranscriptionService,
+)
+
 
 router = APIRouter(tags=["Live Transcription"])
 
-transcription_service = TranscriptionService()
-
-# The browser sends one chunk every two seconds.
-# Three chunks means transcription occurs approximately every six seconds.
-CHUNKS_PER_TRANSCRIPTION = 3
-
 
 @router.websocket("/ws/transcribe")
-async def live_transcription(websocket: WebSocket) -> None:
+async def live_transcription(
+    websocket: WebSocket,
+) -> None:
     await websocket.accept()
 
-    audio_buffer = bytearray()
-    chunks_received = 0
-    previous_text = ""
+    transcription_service = TranscriptionService()
+
+    streaming_service = StreamingTranscriptionService(
+        transcription_service=transcription_service,
+        chunks_per_transcription=3,
+    )
 
     await websocket.send_json(
         {
@@ -35,64 +41,21 @@ async def live_transcription(websocket: WebSocket) -> None:
         while True:
             message = await websocket.receive()
 
-            # Binary message: microphone audio
             if message.get("bytes") is not None:
-                audio_chunk = message["bytes"]
-
-                audio_buffer.extend(audio_chunk)
-                chunks_received += 1
-
-                await websocket.send_json(
-                    {
-                        "status": "buffering",
-                        "bytes": len(audio_buffer),
-                        "chunks": chunks_received,
-                    }
+                await handle_audio_message(
+                    websocket=websocket,
+                    streaming_service=streaming_service,
+                    audio_chunk=message["bytes"],
                 )
 
-                if chunks_received % CHUNKS_PER_TRANSCRIPTION == 0:
-                    transcript = await transcribe_buffer(
-                        bytes(audio_buffer)
-                    )
-                    print("Partial transcript result:", transcript)
-
-                    text = transcript.get("text", "").strip()
-
-                    if text and text != previous_text:
-                        previous_text = text
-
-                        await websocket.send_json(
-                            {
-                                "status": "transcribing",
-                                "text": text,
-                                "language": transcript.get("language"),
-                                "final": False,
-                            }
-                        )
-
-            # Text message: commands such as stop
             elif message.get("text") is not None:
-                command = parse_command(message["text"])
+                should_stop = await handle_text_message(
+                    websocket=websocket,
+                    streaming_service=streaming_service,
+                    raw_message=message["text"],
+                )
 
-                if command == "stop":
-                    if audio_buffer:
-                        transcript = await transcribe_buffer(
-                            bytes(audio_buffer)
-                        )
-                        print("Final transcript result:", transcript)
-                        await websocket.send_json(
-                            {
-                                "status": "completed",
-                                "text": transcript.get(
-                                    "text",
-                                    "",
-                                ).strip(),
-                                "language": transcript.get("language"),
-                                "final": True,
-                            }
-                        )
-
-                    await websocket.close()
+                if should_stop:
                     break
 
     except WebSocketDisconnect:
@@ -112,40 +75,85 @@ async def live_transcription(websocket: WebSocket) -> None:
             pass
 
 
-async def transcribe_buffer(
-    audio_data: bytes,
-) -> dict[str, str]:
-    """
-    Save the accumulated browser audio as a temporary WebM file
-    and run Whisper without blocking FastAPI's event loop.
-    """
+async def handle_audio_message(
+    websocket: WebSocket,
+    streaming_service: StreamingTranscriptionService,
+    audio_chunk: bytes,
+) -> None:
+    streaming_service.add_audio_chunk(audio_chunk)
 
-    temp_path: str | None = None
+    await websocket.send_json(
+        {
+            "status": "buffering",
+            "bytes": streaming_service.get_buffer_size(),
+            "chunks": (
+                streaming_service.get_chunks_received()
+            ),
+        }
+    )
 
-    try:
-        with tempfile.NamedTemporaryFile(
-            delete=False,
-            suffix=".webm",
-        ) as temp_file:
-            temp_file.write(audio_data)
-            temp_path = temp_file.name
+    if not streaming_service.should_transcribe():
+        return
 
-        result = await asyncio.to_thread(
-            transcription_service.transcribe,
-            temp_path,
-        )
+    transcript = (
+        await streaming_service.create_partial_transcript()
+    )
 
-        return result
+    print("Partial transcript result:", transcript)
 
-    finally:
-        if temp_path and os.path.exists(temp_path):
-            os.remove(temp_path)
+    if transcript is None:
+        return
+
+    await websocket.send_json(
+        {
+            "status": "transcribing",
+            "text": transcript["text"],
+            "language": transcript["language"],
+            "final": False,
+        }
+    )
 
 
-def parse_command(raw_message: str) -> str | None:
+async def handle_text_message(
+    websocket: WebSocket,
+    streaming_service: StreamingTranscriptionService,
+    raw_message: str,
+) -> bool:
+    command = parse_command(raw_message)
+
+    if command != "stop":
+        return False
+
+    transcript = (
+        await streaming_service.create_final_transcript()
+    )
+
+    print("Final transcript result:", transcript)
+
+    await websocket.send_json(
+        {
+            "status": "completed",
+            "text": transcript["text"],
+            "language": transcript["language"],
+            "final": True,
+        }
+    )
+
+    await websocket.close()
+
+    return True
+
+
+def parse_command(
+    raw_message: str,
+) -> str | None:
     try:
         data = json.loads(raw_message)
-        return data.get("event")
+
+        if isinstance(data, dict):
+            return data.get("event")
+
+        return None
+
     except json.JSONDecodeError:
         return raw_message
-    
