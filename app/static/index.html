@@ -1,22 +1,123 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
+    <meta charset="UTF-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
     <title>SpeechFlow</title>
-    <link rel="stylesheet" href="/static/style.css">
+
+    <link
+        rel="stylesheet"
+        href="/static/style.css"
+    >
 </head>
 
 <body>
-    <div class="container">
-        <h1>SpeechFlow</h1>
-        <p>Upload an audio file and transcribe it using Whisper.</p>
+    <main class="container">
+        <header class="page-header">
+            <div>
+                <p class="eyebrow">GPU-powered speech recognition</p>
+                <h1>SpeechFlow</h1>
+                <p class="subtitle">
+                    Upload audio or transcribe directly from your microphone.
+                </p>
+            </div>
 
-        <input type="file" id="audioFile" accept="audio/*">
-        <button onclick="transcribeAudio()">Transcribe</button>
+            <div
+                id="connectionStatus"
+                class="status status-offline"
+            >
+                Offline
+            </div>
+        </header>
 
-        <h2>Result</h2>
-        <pre id="result">No transcription yet.</pre>
-    </div>
+        <section class="card">
+            <h2>Upload audio</h2>
+
+            <p class="section-description">
+                Select an audio file and send it to the transcription API.
+            </p>
+
+            <label
+                class="file-picker"
+                for="audioFile"
+            >
+                <span id="selectedFileName">Choose an audio file</span>
+
+                <input
+                    type="file"
+                    id="audioFile"
+                    accept="audio/*"
+                >
+            </label>
+
+            <button
+                id="uploadButton"
+                class="button button-primary"
+                type="button"
+            >
+                Transcribe file
+            </button>
+        </section>
+
+        <section class="card">
+            <h2>Live microphone</h2>
+
+            <p class="section-description">
+                Start recording and receive near-real-time transcription.
+            </p>
+
+            <div class="button-row">
+                <button
+                    id="startButton"
+                    class="button button-success"
+                    type="button"
+                >
+                    Start microphone
+                </button>
+
+                <button
+                    id="stopButton"
+                    class="button button-danger"
+                    type="button"
+                    disabled
+                >
+                    Stop microphone
+                </button>
+            </div>
+
+            <div class="recording-indicator">
+                <span
+                    id="recordingDot"
+                    class="recording-dot"
+                ></span>
+
+                <span id="recordingStatus">
+                    Microphone stopped
+                </span>
+            </div>
+        </section>
+
+        <section class="card">
+            <div class="result-header">
+                <h2>Transcript</h2>
+
+                <button
+                    id="clearButton"
+                    class="button button-secondary"
+                    type="button"
+                >
+                    Clear
+                </button>
+            </div>
+
+            <pre id="result">Your transcription will appear here.</pre>
+        </section>
+    </main>
 
     <script src="/static/script.js"></script>
 </body>
